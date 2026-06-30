@@ -1124,17 +1124,23 @@ async function verifyKey(key){
   if(sig !== expectSig) return {ok:false};
   let data; try{ data = JSON.parse(payloadStr); }catch(e){ return {ok:false}; }
   // expiry check
+  let daysLeft = null;
   if(data.e){
-    const today = new Date(); const ymd = today.getFullYear()*10000 + (today.getMonth()+1)*100 + today.getDate();
-    if(parseInt(data.e) < ymd) return {ok:false, expired:true, centre:data.c, exp:data.e};
+    const today = new Date(); today.setHours(0,0,0,0);
+    const ey=parseInt(data.e.slice(0,4)), em=parseInt(data.e.slice(4,6))-1, ed=parseInt(data.e.slice(6,8));
+    const expDate = new Date(ey,em,ed); expDate.setHours(0,0,0,0);
+    daysLeft = Math.round((expDate - today)/86400000);
+    if(daysLeft < 0) return {ok:false, expired:true, centre:data.c, exp:data.e};
   }
-  return {ok:true, centre:data.c||"", exp:data.e||""};
+  return {ok:true, centre:data.c||"", exp:data.e||"", daysLeft};
 }
 
-/* ---- encrypted local storage (AES-GCM, key derived from license) ---- */
+/* ---- encrypted local storage (AES-GCM) ----
+   The encryption key is derived from the centre's EMAIL (constant across renewals),
+   NOT the licence key — so a renewed key still decrypts existing data. */
 let CRYPTO_KEY = null;
-async function deriveKey(license){
-  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(license+LICENSE_SECRET), "PBKDF2", false, ["deriveKey"]);
+async function deriveKey(emailOrId){
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode((emailOrId||"").toLowerCase()+LICENSE_SECRET), "PBKDF2", false, ["deriveKey"]);
   return crypto.subtle.deriveKey(
     {name:"PBKDF2", salt:new TextEncoder().encode("tp-salt-v1"), iterations:100000, hash:"SHA-256"},
     base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
@@ -1202,11 +1208,28 @@ function showGate(msg){
     if(res.expired){ showGate("Mã đã hết hạn. Vui lòng gia hạn. / Licence expired. Please renew."); return; }
     if(!res.ok){ showGate("Mã không hợp lệ. / Invalid licence key."); return; }
     localStorage.setItem(LS_KEY, JSON.stringify({key, email}));
-    CRYPTO_KEY = await deriveKey(key);
+    CRYPTO_KEY = await deriveKey(email);
     await loadData();
     view = { screen:"roster", teacherId:null };
     render();
+    maybeWarn(res.daysLeft);
   };
+}
+
+/* ---- renewal warning banner (3 days before expiry) ---- */
+function maybeWarn(daysLeft){
+  const old = document.getElementById("renew-banner"); if(old) old.remove();
+  if(daysLeft===null || daysLeft===undefined || daysLeft>3) return;
+  const vi = daysLeft===0 ? "Giấy phép của bạn hết hạn hôm nay. Vui lòng gia hạn để tiếp tục."
+            : `Giấy phép của bạn sẽ hết hạn sau ${daysLeft} ngày. Vui lòng gia hạn.`;
+  const en = daysLeft===0 ? "Your licence expires today. Please renew to keep access."
+            : `Your licence expires in ${daysLeft} day${daysLeft===1?"":"s"}. Please renew.`;
+  const bar = document.createElement("div");
+  bar.id="renew-banner";
+  bar.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:60;background:#7a2218;color:#ffe9e6;padding:13px 18px;display:flex;align-items:center;justify-content:center;gap:14px;font-size:13.5px;box-shadow:0 -4px 16px rgba(0,0,0,.15);";
+  bar.innerHTML = `<span style="font-size:16px;">⚠️</span><span><b>${vi}</b><br><span style="opacity:.85">${en}</span></span>
+    <button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:8px;padding:7px 12px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Đã hiểu / OK</button>`;
+  document.body.appendChild(bar);
 }
 
 /* ---------- boot ---------- */
@@ -1217,9 +1240,10 @@ function showGate(msg){
       const {key, email} = JSON.parse(stored);
       const res = await verifyKey(key);
       if(res.ok){
-        CRYPTO_KEY = await deriveKey(key);
+        CRYPTO_KEY = await deriveKey(email);
         await loadData();
         render();
+        maybeWarn(res.daysLeft);
         return;
       } else if(res.expired){
         showGate("Mã đã hết hạn. Vui lòng gia hạn. / Licence expired. Please renew.");
