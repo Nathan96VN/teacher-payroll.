@@ -567,12 +567,26 @@ function detailScreen(){
   grid.appendChild(fxField);
   grid.appendChild(field(t("dependents"), `<input id="d-deps" type="number" min="0" value="${tch.deps}">`));
   grid.appendChild(field(t("taxnumber"), `<input id="d-mst" placeholder="${t("taxnumberph")}" value="${esc(tch.mst)}">`));
-  grid.appendChild(field(t("allowancename"), `<input id="d-allowname" placeholder="${t("allowancenameph")}" value="${esc(tch.allowanceName||"")}">`));
-  grid.appendChild(field(t("allowance"), `<input id="d-allow" type="number" value="${tch.allowance||0}">`));
+  card.appendChild(grid);
+
+  // other income — full width, on its own line
+  const oiLabel = el("div",{style:"font-size:12px;font-weight:500;color:var(--ink-soft);margin:16px 0 6px;"}, `${t("otherincome")} <span style="font-weight:400;">— ${t("otherhint")}</span>`);
+  card.appendChild(oiLabel);
+  const oiRows = el("div",{id:"oi-rows"});
+  card.appendChild(oiRows);
+  renderOtherIncome(oiRows, tch);
+  const addOi = el("button",{class:"add-link"}, icon.plus+t("addincome"));
+  addOi.onclick = ()=>{ readDetail(tch); (tch.otherIncome=tch.otherIncome||[]).push({name:"",rate:0,hours:0}); render(); };
+  card.appendChild(addOi);
+
+  // allowance + insurance grid below other income
+  const grid2 = el("div",{class:"grid cols2",style:"margin-top:16px;"});
+  grid2.appendChild(field(t("allowancename"), `<input id="d-allowname" placeholder="${t("allowancenameph")}" value="${esc(tch.allowanceName||"")}">`));
+  grid2.appendChild(field(t("allowance"), `<input id="d-allow" type="number" value="${tch.allowance||0}">`));
   const insField = field(t("insbase"), `<input id="d-insbase" type="number" value="${tch.insBase||0}">`);
   insField.querySelector("input").insertAdjacentHTML("afterend",`<div class="hint">${t("insbasehint")}</div>`);
-  grid.appendChild(insField);
-  card.appendChild(grid);
+  grid2.appendChild(insField);
+  card.appendChild(grid2);
   frag.appendChild(card);
 
   // weekly schedule builder
@@ -590,18 +604,6 @@ function detailScreen(){
   const calCard = el("div",{class:"card card-pad",id:"calwrap"});
   renderCalendar(calCard, tch);
   frag.appendChild(calCard);
-
-  // other income
-  const oit = el("div",{class:"section-title"}, `${t("otherincome")} <span class="muted">— ${t("otherhint")}</span>`);
-  frag.appendChild(oit);
-  const oiCard = el("div",{class:"card card-pad"});
-  const oiRows = el("div",{id:"oi-rows"});
-  oiCard.appendChild(oiRows);
-  renderOtherIncome(oiRows, tch);
-  const addOi = el("button",{class:"add-link"}, icon.plus+t("addincome"));
-  addOi.onclick = ()=>{ readDetail(tch); (tch.otherIncome=tch.otherIncome||[]).push({name:"",rate:0,hours:0}); render(); };
-  oiCard.appendChild(addOi);
-  frag.appendChild(oiCard);
 
   // options
   const opts = el("div",{class:"grid cols2",style:"margin-top:18px;"});
