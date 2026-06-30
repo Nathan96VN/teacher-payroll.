@@ -207,7 +207,7 @@ const I18N = {
     gross:"Gross", pit:"Personal income tax", net:"Net take-home",
     viewpayslip:"View payslip", exportpdf:"Export PDF", exportexcel:"Export Excel",
     /* center setup */
-    centername:"Center name", centeraddr:"Address", centertax:"Center tax code",
+    centername:"School / Center name", centeraddr:"Address", centertax:"Center tax code",
     setlogo:"Upload logo", logoset:"Logo set", savesetup:"Save setup",
     setupintro:"These appear on every payslip header.",
     /* payslip */
@@ -259,7 +259,7 @@ const I18N = {
     latededuct:"Khấu trừ đi muộn", holidaypremium:"Phụ trội lễ (miễn thuế/BH)",
     gross:"Tổng thu nhập", pit:"Thuế TNCN", net:"Thực lĩnh",
     viewpayslip:"Xem phiếu lương", exportpdf:"Xuất PDF", exportexcel:"Xuất Excel",
-    centername:"Tên trung tâm", centeraddr:"Địa chỉ", centertax:"Mã số thuế trung tâm",
+    centername:"Tên trường / trung tâm", centeraddr:"Địa chỉ", centertax:"Mã số thuế trung tâm",
     setlogo:"Tải logo", logoset:"Đã có logo", savesetup:"Lưu thiết lập",
     setupintro:"Các thông tin này hiện trên đầu mỗi phiếu lương.",
     payslip:"Phiếu lương", income:"Các khoản thu nhập", deductions:"Các khoản khấu trừ",
@@ -1105,6 +1105,7 @@ function exportCSV(tch){
    payload = {c:centreName, e:expiryYYYYMMDD or ""}  signed with SECRET via SHA-256.
    This is a practical gate for non-technical users, not bank-grade DRM. */
 const LICENSE_SECRET = "GFLC-2026-vn-payroll-7Qx"; // change this; must match keygen
+const RENEWAL_EMAIL = "you@youremail.com"; // where "I want to renew" requests are sent — change to your email
 const LS_KEY = "tp_license_v1";
 const LS_DATA = "tp_data_v1";
 
