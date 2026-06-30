@@ -95,7 +95,7 @@
 
   /* how it works */
   .steps{display:grid;gap:18px;counter-reset:s;}
-  @media(min-width:780px){.steps{grid-template-columns:repeat(3,1fr);}}
+  @media(min-width:780px){.steps{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));}}
   .step{position:relative;padding:26px 22px;background:var(--paper);border:1px solid var(--line);border-radius:15px;}
   .step-n{font-size:13px;font-weight:800;color:var(--teal);background:var(--teal-soft);width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
   .step h3{font-size:16px;margin-bottom:6px;}
@@ -261,19 +261,25 @@
   <div class="wrap">
     <div class="sec-head">
       <div class="sec-eyebrow" data-vi>Cách hoạt động</div><div class="sec-eyebrow" data-en>How it works</div>
-      <h2 class="sec-h" data-vi>Sẵn sàng trong ba bước.</h2>
-      <h2 class="sec-h" data-en>Up and running in three steps.</h2>
+      <h2 class="sec-h" data-vi>Cách bắt đầu.</h2>
+      <h2 class="sec-h" data-en>How getting started works.</h2>
     </div>
     <div class="steps">
-      <div class="step"><div class="step-n">1</div><h3 data-vi>Tạo tài khoản trung tâm</h3><h3 data-en>Create your centre</h3>
-        <p data-vi>Đăng ký, thêm tên trung tâm, logo và mã số thuế. Mời nhân sự cùng quản lý.</p>
-        <p data-en>Register, add your centre name, logo and tax code. Invite your staff to manage it together.</p></div>
-      <div class="step"><div class="step-n">2</div><h3 data-vi>Thêm giáo viên & lịch dạy</h3><h3 data-en>Add teachers & schedules</h3>
-        <p data-vi>Nhập đơn giá, người phụ thuộc, phụ cấp và lịch dạy hàng tuần cho từng giáo viên.</p>
-        <p data-en>Enter rates, dependents, allowances and the weekly timetable for each teacher.</p></div>
-      <div class="step"><div class="step-n">3</div><h3 data-vi>Xuất phiếu lương</h3><h3 data-en>Generate payslips</h3>
-        <p data-vi>Ứng dụng tính thuế, bảo hiểm và thực lĩnh. Xuất PDF hoặc Excel để chi trả.</p>
-        <p data-en>The app computes tax, insurance and net pay. Export to PDF or Excel to pay.</p></div>
+      <div class="step"><div class="step-n">1</div><h3 data-vi>Đăng ký</h3><h3 data-en>Register</h3>
+        <p data-vi>Điền tên trung tâm và email của bạn để đăng ký dùng dịch vụ.</p>
+        <p data-en>Enter your centre name and email to request access.</p></div>
+      <div class="step"><div class="step-n">2</div><h3 data-vi>Thanh toán</h3><h3 data-en>Pay</h3>
+        <p data-vi>Thanh toán phí theo tháng hoặc năm qua chuyển khoản ngân hàng.</p>
+        <p data-en>Pay the monthly or yearly fee by bank transfer.</p></div>
+      <div class="step"><div class="step-n">3</div><h3 data-vi>Nhận mã qua email</h3><h3 data-en>Get your key by email</h3>
+        <p data-vi>Sau khi xác nhận thanh toán (thường trong ít phút đến vài giờ), chúng tôi gửi mã giấy phép đến email của bạn.</p>
+        <p data-en>Once payment is confirmed (usually within minutes to a few hours), we email you your licence key.</p></div>
+      <div class="step"><div class="step-n">4</div><h3 data-vi>Mở khoá & dùng</h3><h3 data-en>Unlock & use</h3>
+        <p data-vi>Nhập email và mã để mở khoá. Dữ liệu được lưu mã hoá trên thiết bị của bạn.</p>
+        <p data-en>Enter your email and key to unlock. Your data is encrypted on your own device.</p></div>
+      <div class="step"><div class="step-n">5</div><h3 data-vi>Gia hạn dễ dàng</h3><h3 data-en>Renew easily</h3>
+        <p data-vi>Trước khi hết hạn, ứng dụng nhắc bạn 3 ngày. Thanh toán lại để nhận mã mới — dữ liệu của bạn luôn được giữ nguyên.</p>
+        <p data-en>The app reminds you 3 days before expiry. Pay again for a new key — your data is always kept.</p></div>
     </div>
   </div>
 </section>
@@ -360,8 +366,8 @@
       <div class="modal-switch"><span data-vi>Đã có tài khoản?</span><span data-en>Already have one?</span> <a onclick="showForm('login')"><span data-vi>Đăng nhập</span><span data-en>Log in</span></a></div>
     </div>
     <div class="modal-note" id="demo-note" style="display:none;">
-      <span data-vi>Đây là bản mẫu giao diện. Đăng nhập và lưu dữ liệu sẽ hoạt động khi hệ thống tài khoản được kết nối.</span>
-      <span data-en>This is a design mockup. Login and saved data will work once the accounts system is connected.</span>
+      <span data-vi>Sau khi đăng ký và thanh toán, chúng tôi sẽ gửi mã giấy phép đến email của bạn (thường trong ít phút đến vài giờ) để mở khoá ứng dụng.</span>
+      <span data-en>After you register and pay, we'll email your licence key (usually within minutes to a few hours) to unlock the app.</span>
     </div>
   </div>
 </div>
