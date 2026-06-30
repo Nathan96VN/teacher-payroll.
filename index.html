@@ -137,16 +137,17 @@
   .wk-r{margin-bottom:7px;}
   .wk-r input,.wk-r select{height:36px;font-size:13px;padding:0 8px;}
   /* timetable grid */
-  .tt{display:grid;grid-template-columns:96px repeat(7,minmax(78px,1fr));gap:4px;min-width:660px;}
+  .tt{display:grid;grid-template-columns:150px repeat(7,minmax(78px,1fr));gap:4px 4px;min-width:710px;align-items:center;}
   .tt-th{font-size:11px;font-weight:600;color:var(--ink-soft);text-align:center;padding:4px 0;}
   .tt-th.tt-time{text-align:left;}
-  .tt-time-cell{display:flex;flex-direction:column;gap:3px;}
-  .tt-time-cell input{height:28px;font-size:11px;padding:0 5px;}
+  .tt-time-cell{display:flex;align-items:center;gap:4px;}
+  .tt-time-cell input{height:34px;font-size:11px;padding:0 4px;min-width:0;}
+  .tt-dash{color:var(--ink-soft);font-size:12px;}
   .tt-cell input{height:38px;font-size:12px;padding:0 6px;text-align:center;border-color:var(--line-soft);}
   .tt-cell.filled input{background:var(--teal-soft);border-color:var(--teal-soft);font-weight:600;color:var(--teal);}
   /* other income */
   .oi-h,.oi-r{display:grid;grid-template-columns:1.5fr 1fr .7fr 1fr 34px;gap:7px;align-items:center;}
-  .oi-h{font-size:11px;color:var(--ink-soft);font-weight:500;padding:0 2px 8px;}
+  .oi-h{font-size:11px;color:var(--ink-soft);font-weight:500;padding:0 2px 4px;}
   .oi-h span:nth-child(4){text-align:right;}
   .oi-r{margin-bottom:7px;}
   .oi-r input{height:36px;font-size:13px;padding:0 8px;}
@@ -714,8 +715,7 @@ function renderWeeklyRows(wrap, tch){
   rows.forEach((r,ri)=>{
     // time cell (editable start/end)
     const timeCell = el("div",{class:"tt-time-cell"});
-    timeCell.innerHTML = `<input type="time" value="${r.start}" data-trow="${ri}" data-tf="start">
-      <input type="time" value="${r.end}" data-trow="${ri}" data-tf="end">`;
+    timeCell.innerHTML = `<input type="time" value="${r.start}" data-trow="${ri}" data-tf="start"><span class="tt-dash">–</span><input type="time" value="${r.end}" data-trow="${ri}" data-tf="end">`;
     grid.appendChild(timeCell);
     // 7 day cells
     DOWSEL.forEach(dow=>{
