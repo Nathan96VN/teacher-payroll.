@@ -137,12 +137,14 @@
   .wk-r{margin-bottom:7px;}
   .wk-r input,.wk-r select{height:36px;font-size:13px;padding:0 8px;}
   /* timetable grid */
-  .tt{display:grid;grid-template-columns:150px repeat(7,minmax(78px,1fr));gap:4px 4px;min-width:710px;align-items:center;}
+  .tt{display:grid;grid-template-columns:178px repeat(7,minmax(78px,1fr));gap:4px 4px;min-width:740px;align-items:center;}
   .tt-th{font-size:11px;font-weight:600;color:var(--ink-soft);text-align:center;padding:4px 0;}
   .tt-th.tt-time{text-align:left;}
   .tt-time-cell{display:flex;align-items:center;gap:4px;}
   .tt-time-cell input{height:34px;font-size:11px;padding:0 4px;min-width:0;}
   .tt-dash{color:var(--ink-soft);font-size:12px;}
+  .tt-delrow{width:24px;height:24px;flex-shrink:0;border:none;}
+  .tt-delrow svg{width:13px;height:13px;}
   .tt-cell input{height:38px;font-size:12px;padding:0 6px;text-align:center;border-color:var(--line-soft);}
   .tt-cell.filled input{background:var(--teal-soft);border-color:var(--teal-soft);font-weight:600;color:var(--teal);}
   /* other income */
@@ -359,14 +361,19 @@ const pad2 = n => String(n).padStart(2,"0");
 const dKey = (y,m,d) => `${y}-${pad2(m+1)}-${pad2(d)}`;
 function monthOccurrences(tch, year, month){
   const occ=[]; const days=new Date(year,month+1,0).getDate();
+  const rowById = {};
+  (tch.timeRows||[]).forEach(r=> rowById[r.id]=r);
   (tch.weekly||[]).forEach(slot=>{
+    const row = slot.rowId ? rowById[slot.rowId] : null;
+    const start = row ? row.start : slot.start;
+    const end = row ? row.end : slot.end;
     for(let d=1; d<=days; d++){
       let dow=new Date(year,month,d).getDay(); dow=dow===0?7:dow;
       if(dow===slot.dow){
         const key=dKey(year,month,d)+"_"+slot.id;
         const ded=(tch.deductions&&tch.deductions[key])||null;
-        const sched=minutesBetween(slot.start,slot.end);
-        occ.push({date:d,key,slot,sched,ded,worked:Math.max(0,sched-(ded?ded.mins:0))});
+        const sched=minutesBetween(start,end);
+        occ.push({date:d,key,slot:{...slot,start,end},sched,ded,worked:Math.max(0,sched-(ded?ded.mins:0))});
       }
     }
   });
@@ -696,76 +703,87 @@ function renderOtherIncome(wrap, tch){
   });
 }
 
-/* ---- timetable grid: rows = time slots, columns = Mon..Sun ---- */
-function slotKey(s){ return s.start+"-"+s.end; }
-function getTimeRows(tch){
-  // unique start-end pairs, sorted by start
-  const map = {};
-  (tch.weekly||[]).forEach(s=>{ map[slotKey(s)] = {start:s.start, end:s.end}; });
-  return Object.values(map).sort((a,b)=> a.start.localeCompare(b.start));
+/* ---- timetable grid: explicit time rows × Mon..Sun ---- */
+function ensureTimeRows(tch){
+  // migrate: if no timeRows yet, derive from existing weekly slots
+  if(!tch.timeRows){
+    const map = {};
+    (tch.weekly||[]).forEach(s=>{
+      const k = s.start+"-"+s.end;
+      if(!map[k]){ map[k] = {id:"r"+Object.keys(map).length, start:s.start, end:s.end}; }
+      s.rowId = map[k].id;
+    });
+    tch.timeRows = Object.values(map).sort((a,b)=> a.start.localeCompare(b.start));
+    if(!tch.timeRows.length) tch.timeRows = [{id:"r0",start:"18:00",end:"19:30"}];
+  }
+  return tch.timeRows;
 }
 function renderWeeklyRows(wrap, tch){
   wrap.innerHTML="";
   tch.weekly = tch.weekly || [];
-  const rows = getTimeRows(tch);
-  const days = DOW_LABELS[lang]; // 7
+  const rows = ensureTimeRows(tch);
+  const days = DOW_LABELS[lang];
 
   const grid = el("div",{class:"tt"});
-  // header row
   let html = `<div class="tt-th tt-time">${t("starttime")}/${t("endtime")}</div>`;
   days.forEach(d=> html += `<div class="tt-th">${d}</div>`);
   grid.innerHTML = html;
 
-  rows.forEach((r,ri)=>{
-    // time cell (editable start/end)
+  rows.forEach((r)=>{
     const timeCell = el("div",{class:"tt-time-cell"});
-    timeCell.innerHTML = `<input type="time" value="${r.start}" data-trow="${ri}" data-tf="start"><span class="tt-dash">–</span><input type="time" value="${r.end}" data-trow="${ri}" data-tf="end">`;
+    timeCell.innerHTML = `<input type="time" value="${r.start}" data-rowid="${r.id}" data-tf="start"><span class="tt-dash">–</span><input type="time" value="${r.end}" data-rowid="${r.id}" data-tf="end"><button class="tt-delrow iconbtn" data-delrow="${r.id}" title="remove row">${icon.x}</button>`;
     grid.appendChild(timeCell);
-    // 7 day cells
     DOWSEL.forEach(dow=>{
-      const slot = tch.weekly.find(s=> slotKey(s)===slotKey(r) && s.dow===dow);
+      const slot = tch.weekly.find(s=> s.rowId===r.id && s.dow===dow);
       const cell = el("div",{class:"tt-cell"+(slot?" filled":"")});
-      cell.innerHTML = `<input value="${slot?esc(slot.label):""}" placeholder="–" data-cellrow="${ri}" data-dow="${dow}">`;
+      cell.innerHTML = `<input value="${slot?esc(slot.label):""}" placeholder="–" data-rowid="${r.id}" data-dow="${dow}">`;
       grid.appendChild(cell);
     });
   });
   wrap.appendChild(grid);
 
-  // add a new time-slot row
   const addRow = el("button",{class:"add-link",style:"margin-top:10px;"}, icon.plus+t("addslot"));
   addRow.onclick = ()=>{
-    // add an empty slot row with a fresh time; user fills classes per day
-    const last = rows.length? rows[rows.length-1] : {start:"08:00",end:"08:45"};
-    tch.weekly.push({id:"s"+(Date.now()%100000), label:"", dow:1, start:last.end||"09:00", end:"10:00", mult:1, placeholder:true});
+    const last = rows[rows.length-1];
+    tch.timeRows.push({id:"r"+Date.now(), start:last?last.end:"08:00", end:"09:00"});
     renderWeeklyRows(wrap, tch);
   };
   wrap.appendChild(addRow);
 
-  // wire time edits (changes the start/end for all slots sharing that row)
-  wrap.querySelectorAll("[data-trow]").forEach(inp=>{
+  // edit a row's time
+  wrap.querySelectorAll("input[data-tf]").forEach(inp=>{
     inp.addEventListener("change", ()=>{
-      const ri=+inp.dataset.trow, f=inp.dataset.tf;
-      const oldRow = rows[ri];
-      tch.weekly.forEach(s=>{ if(slotKey(s)===slotKey(oldRow)) s[f]=inp.value; });
+      const rid=inp.dataset.rowid, f=inp.dataset.tf;
+      const row = tch.timeRows.find(r=>r.id===rid); if(row) row[f]=inp.value;
+      renderBreakdown(document.getElementById("breakdown"), tch);
+      renderCalendar(document.getElementById("calwrap"), tch);
+    });
+  });
+  // delete a row
+  wrap.querySelectorAll("button[data-delrow]").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      const rid=b.dataset.delrow;
+      tch.timeRows = tch.timeRows.filter(r=>r.id!==rid);
+      tch.weekly = tch.weekly.filter(s=> s.rowId!==rid);
+      if(!tch.timeRows.length) tch.timeRows=[{id:"r0",start:"18:00",end:"19:30"}];
       renderWeeklyRows(wrap, tch);
       renderBreakdown(document.getElementById("breakdown"), tch);
       renderCalendar(document.getElementById("calwrap"), tch);
     });
   });
-  // wire class name edits per cell
-  wrap.querySelectorAll("[data-cellrow]").forEach(inp=>{
+  // edit a class cell
+  wrap.querySelectorAll("input[data-dow]").forEach(inp=>{
     inp.addEventListener("change", ()=>{
-      const ri=+inp.dataset.cellrow, dow=+inp.dataset.dow;
-      const r=rows[ri]; const val=inp.value.trim();
-      let slot = tch.weekly.find(s=> slotKey(s)===slotKey(r) && s.dow===dow);
+      const rid=inp.dataset.rowid, dow=+inp.dataset.dow, val=inp.value.trim();
+      const row = tch.timeRows.find(r=>r.id===rid);
+      let slot = tch.weekly.find(s=> s.rowId===rid && s.dow===dow);
       if(val){
-        if(slot){ slot.label=val; slot.placeholder=false; }
-        else tch.weekly.push({id:"s"+(Date.now()%100000)+dow, label:val, dow, start:r.start, end:r.end, mult:1});
+        if(slot) slot.label=val;
+        else tch.weekly.push({id:"s"+Date.now()+dow, label:val, dow, rowId:rid, start:row.start, end:row.end, mult:1});
       } else if(slot){
         tch.weekly = tch.weekly.filter(s=> s!==slot);
       }
-      // clean placeholder-only rows
-      tch.weekly = tch.weekly.filter(s=> !(s.placeholder && !s.label));
+      renderWeeklyRows(wrap, tch);
       renderBreakdown(document.getElementById("breakdown"), tch);
       renderCalendar(document.getElementById("calwrap"), tch);
     });
