@@ -136,6 +136,11 @@
   .wk-h{font-size:11px;color:var(--ink-soft);font-weight:500;padding:0 2px 8px;}
   .wk-r{margin-bottom:7px;}
   .wk-r input,.wk-r select{height:36px;font-size:13px;padding:0 8px;}
+  /* other income */
+  .oi-h,.oi-r{display:grid;grid-template-columns:1.6fr 1fr 34px;gap:7px;align-items:center;}
+  .oi-h{font-size:11px;color:var(--ink-soft);font-weight:500;padding:0 2px 8px;}
+  .oi-r{margin-bottom:7px;}
+  .oi-r input{height:36px;font-size:13px;padding:0 8px;}
 
   /* calendar */
   .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
@@ -209,6 +214,9 @@ const I18N = {
     save:"Save", remove:"Remove", noclasses:"No classes this day",
     minutesthismonth:"Taught this month", scheduledmin:"Scheduled", workedmin:"Worked",
     profile:"Profile", overview:"Overview",
+    allowancename:"Allowance name", allowancenameph:"e.g. Housing, Transport",
+    otherincome:"Other income", otherhint:"extra paid activities (events, invigilation) at the school's own rates",
+    incomename:"Income name", incomenameph:"e.g. Exam invigilation", amountvnd:"Amount (VND)", addincome:"Add income line",
   },
   vi:{
     appsub:"Lương giáo viên",
@@ -253,6 +261,9 @@ const I18N = {
     save:"Lưu", remove:"Xóa", noclasses:"Không có lớp ngày này",
     minutesthismonth:"Dạy tháng này", scheduledmin:"Theo lịch", workedmin:"Thực dạy",
     profile:"Hồ sơ", overview:"Tổng quan",
+    allowancename:"Tên phụ cấp", allowancenameph:"vd: Nhà ở, Đi lại",
+    otherincome:"Thu nhập khác", otherhint:"các hoạt động có trả thêm (sự kiện, coi thi) theo mức của trung tâm",
+    incomename:"Tên khoản thu", incomenameph:"vd: Coi thi", amountvnd:"Số tiền (VND)", addincome:"Thêm khoản thu",
   }
 };
 let lang = 'vi';
@@ -272,7 +283,8 @@ const RATES = {
 let center = { name:"Greenfield Language Centre", addr:"", tax:"", logo:null };
 let teachers = [
   { id:1, name:"Nguyễn Thu Hà", empId:"NQ01", type:"res", cur:"vnd", rate:300000, fx:25000,
-    deps:1, mst:"", insBase:6000000, allowance:3000000,
+    deps:1, mst:"", insBase:6000000, allowance:3000000, allowanceName:"Phụ cấp kiêm nhiệm",
+    otherIncome:[],
     weekly:[
       {id:"s1",label:"IELTS prep",dow:1,start:"18:00",end:"20:00",mult:1},
       {id:"s2",label:"IELTS prep",dow:3,start:"18:00",end:"20:00",mult:1},
@@ -281,7 +293,8 @@ let teachers = [
     deductions:{ "2026-06-08_s1":{mins:4,note:"arrived late"} },
     toggles:{si:true,hi:true,ui:true,split:true,cap:true} },
   { id:2, name:"Steyn Nathan Byran", empId:"NQ05", type:"res", cur:"usd", rate:18, fx:25000,
-    deps:0, mst:"", insBase:6000000, allowance:3000000,
+    deps:0, mst:"", insBase:6000000, allowance:3000000, allowanceName:"Housing allowance",
+    otherIncome:[],
     weekly:[
       {id:"s1",label:"IELTS prep",dow:2,start:"17:30",end:"19:30",mult:1},
       {id:"s2",label:"Business English",dow:4,start:"17:30",end:"19:30",mult:1},
@@ -369,7 +382,8 @@ function calc(tch){
 
   const teachingTaxable = regPay + flatHoliday;
   const allowance = +tch.allowance||0;
-  const taxableBase = teachingTaxable + allowance;
+  const otherTotal = (tch.otherIncome||[]).reduce((a,o)=>a+(+o.amount||0),0);
+  const taxableBase = teachingTaxable + allowance + otherTotal;
   const gross = taxableBase + premium;
 
   let insSalary = (tch.insBase && tch.insBase>0) ? tch.insBase : taxableBase;
@@ -386,7 +400,7 @@ function calc(tch){
   else { taxableIncome = Math.max(0, taxableBase - insTotal - familyDeduction); pitDue = pit(taxableIncome); }
 
   const net = gross - insTotal - pitDue;
-  return { vndRate, perMin, regPay:teachingTaxable, latePay, premium, gross,
+  return { vndRate, perMin, regPay:teachingTaxable, latePay, premium, gross, otherTotal,
     siAmt, hiAmt, uiAmt, insTotal, insSalary, familyDeduction, taxableIncome,
     pitDue, net, allowance };
 }
@@ -455,7 +469,8 @@ function rosterScreen(){
   const addBtn = el("button",{class:"btn btn-primary",style:"margin-top:16px;"}, icon.plus+t("addteacher"));
   addBtn.onclick = ()=>{
     const nt = { id:nextId++, name:lang==="vi"?"Giáo viên mới":"New teacher", empId:"", type:"res", cur:"vnd",
-      rate:300000, fx:25000, deps:0, mst:"", insBase:0, allowance:0,
+      rate:300000, fx:25000, deps:0, mst:"", insBase:0, allowance:0, allowanceName:"",
+      otherIncome:[],
       sched:[{l:lang==="vi"?"Lớp 1":"Class 1",s:60,late:0,mult:1}],
       toggles:{si:true,hi:true,ui:true,split:true,cap:true} };
     teachers.push(nt); view.screen="detail"; view.teacherId=nt.id; render();
@@ -541,6 +556,7 @@ function detailScreen(){
   grid.appendChild(fxField);
   grid.appendChild(field(t("dependents"), `<input id="d-deps" type="number" min="0" value="${tch.deps}">`));
   grid.appendChild(field(t("taxnumber"), `<input id="d-mst" placeholder="${t("taxnumberph")}" value="${esc(tch.mst)}">`));
+  grid.appendChild(field(t("allowancename"), `<input id="d-allowname" placeholder="${t("allowancenameph")}" value="${esc(tch.allowanceName||"")}">`));
   grid.appendChild(field(t("allowance"), `<input id="d-allow" type="number" value="${tch.allowance||0}">`));
   const insField = field(t("insbase"), `<input id="d-insbase" type="number" value="${tch.insBase||0}">`);
   insField.querySelector("input").insertAdjacentHTML("afterend",`<div class="hint">${t("insbasehint")}</div>`);
@@ -570,6 +586,18 @@ function detailScreen(){
   const calCard = el("div",{class:"card card-pad",id:"calwrap"});
   renderCalendar(calCard, tch);
   frag.appendChild(calCard);
+
+  // other income
+  const oit = el("div",{class:"section-title"}, `${t("otherincome")} <span class="muted">— ${t("otherhint")}</span>`);
+  frag.appendChild(oit);
+  const oiCard = el("div",{class:"card card-pad"});
+  const oiRows = el("div",{id:"oi-rows"});
+  oiCard.appendChild(oiRows);
+  renderOtherIncome(oiRows, tch);
+  const addOi = el("button",{class:"add-link"}, icon.plus+t("addincome"));
+  addOi.onclick = ()=>{ readDetail(tch); (tch.otherIncome=tch.otherIncome||[]).push({name:"",amount:0}); render(); };
+  oiCard.appendChild(addOi);
+  frag.appendChild(oiCard);
 
   // options
   const opts = el("div",{class:"grid cols2",style:"margin-top:18px;"});
@@ -604,7 +632,7 @@ function detailScreen(){
 
   // wire live inputs
   setTimeout(()=>{
-    ["d-name","d-empid","d-type","d-cur","d-rate","d-fx","d-deps","d-mst","d-allow","d-insbase"].forEach(id=>{
+    ["d-name","d-empid","d-type","d-cur","d-rate","d-fx","d-deps","d-mst","d-allow","d-allowname","d-insbase"].forEach(id=>{
       const e=document.getElementById(id); if(!e) return;
       e.addEventListener("input", ()=>{ readDetail(tch);
         if(id==="d-cur"){ render(); }
@@ -628,6 +656,33 @@ function toggle(key, label, val, tch){
 }
 
 const DOWSEL = [1,2,3,4,5,6,7];
+function renderOtherIncome(wrap, tch){
+  wrap.innerHTML="";
+  const list = tch.otherIncome||[];
+  if(!list.length){ wrap.innerHTML = `<div class="muted">${t("otherhint")}</div>`; return; }
+  const head = el("div",{class:"oi-h"});
+  head.innerHTML = `<span>${t("incomename")}</span><span>${t("amountvnd")}</span><span></span>`;
+  wrap.appendChild(head);
+  list.forEach((o,j)=>{
+    const row = el("div",{class:"oi-r"});
+    row.innerHTML = `<input value="${esc(o.name)}" placeholder="${t("incomenameph")}" data-oif="name" data-j="${j}">
+      <input type="number" value="${o.amount||0}" data-oif="amount" data-j="${j}">
+      <button class="iconbtn" data-oidel="${j}">${icon.x}</button>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll("[data-oif]").forEach(inp=>{
+    inp.addEventListener("input", ()=>{
+      const j=+inp.dataset.j, f=inp.dataset.oif;
+      tch.otherIncome[j][f] = f==="amount" ? (+inp.value||0) : inp.value;
+      renderBreakdown(document.getElementById("breakdown"), tch);
+    });
+  });
+  wrap.querySelectorAll("button[data-oidel]").forEach(b=>{
+    b.addEventListener("click", ()=>{ tch.otherIncome.splice(+b.dataset.oidel,1);
+      renderOtherIncome(wrap,tch); renderBreakdown(document.getElementById("breakdown"),tch); });
+  });
+}
+
 function renderWeeklyRows(wrap, tch){
   wrap.innerHTML="";
   const head = el("div",{class:"wk-h"});
@@ -751,6 +806,7 @@ function readDetail(tch){
   tch.rate=+g("d-rate").value||0; if(g("d-fx")) tch.fx=+g("d-fx").value||0;
   tch.deps=Math.max(0,+g("d-deps").value||0); tch.mst=g("d-mst").value;
   tch.allowance=+g("d-allow").value||0; tch.insBase=+g("d-insbase").value||0;
+  if(g("d-allowname")) tch.allowanceName=g("d-allowname").value;
 }
 
 function renderBreakdown(box, tch){
@@ -758,6 +814,8 @@ function renderBreakdown(box, tch){
   const rows = [];
   rows.push(["lab", t("hourlyrate"), vnd(r.vndRate)]);
   rows.push(["lab", t("regularpay"), vnd(r.regPay)]);
+  if(r.allowance>0) rows.push(["lab", (tch.allowanceName||t("allowance")), vnd(r.allowance)]);
+  (tch.otherIncome||[]).forEach(o=>{ if(+o.amount>0) rows.push(["lab", o.name||t("otherincome"), vnd(+o.amount)]); });
   if(r.latePay>0) rows.push(["neg", t("latededuct"), "−"+vnd(r.latePay)]);
   if(r.premium>0) rows.push(["pos", t("holidaypremium"), vnd(r.premium)]);
   let html = `<div class="bd-row"><span class="lab">${t("gross")}</span><span class="val">${vnd(r.gross)}</span></div>`;
@@ -784,7 +842,8 @@ function buildSlipHTML(tch, forPrint){
 
   // income lines
   let incomeLines = `<div class="slip-line"><span class="l">${L.teachingpay}<span class="en">${I18N.en.teachingpay}</span></span><span class="a">${vnd(r.regPay)}</span></div>`;
-  if(r.allowance>0) incomeLines += `<div class="slip-line"><span class="l">${L.allowance}<span class="en">${I18N.en.allowance}</span></span><span class="a">${vnd(r.allowance)}</span></div>`;
+  if(r.allowance>0) incomeLines += `<div class="slip-line"><span class="l">${esc(tch.allowanceName)||L.allowance}<span class="en">${tch.allowanceName?I18N.en.allowance:""}</span></span><span class="a">${vnd(r.allowance)}</span></div>`;
+  (tch.otherIncome||[]).forEach(o=>{ if(+o.amount>0) incomeLines += `<div class="slip-line"><span class="l">${esc(o.name)||L.otherincome}</span><span class="a">${vnd(+o.amount)}</span></div>`; });
   if(r.premium>0) incomeLines += `<div class="slip-line"><span class="l">${L.holidaypremium}<span class="en">${I18N.en.holidaypremium}</span></span><span class="a">${vnd(r.premium)}</span></div>`;
   incomeLines += `<div class="slip-line sub"><span class="l">${L.totalincome}</span><span class="a">${vnd(r.gross)}</span></div>`;
 
