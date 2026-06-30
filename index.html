@@ -230,6 +230,10 @@ const I18N = {
     allowancename:"Allowance name", allowancenameph:"e.g. Housing, Transport",
     otherincome:"Other income", otherhint:"extra paid activities (events, invigilation) at the school's own rates",
     incomename:"Income name", incomenameph:"e.g. Event hosting", amountvnd:"Rate (VND)", hourslabel:"Hours", addincome:"Add income line",
+    overtime:"Overtime", overtimehint:"premium above normal rate is tax & insurance-free (2026 law)",
+    otname:"Description", otnameph:"e.g. Saturday exam prep", otrate:"OT rate", othours:"Hours", addovertime:"Add overtime",
+    otnormalpart:"Overtime — normal portion (taxable)", otpremiumpart:"Overtime premium (tax & insurance-free)",
+    exemptnote:"Premium above normal rate — exempt from PIT & insurance under 2026 law",
   },
   vi:{
     appsub:"Lương giáo viên",
@@ -277,6 +281,10 @@ const I18N = {
     allowancename:"Tên phụ cấp", allowancenameph:"vd: Nhà ở, Đi lại",
     otherincome:"Thu nhập khác", otherhint:"các hoạt động có trả thêm (sự kiện, coi thi) theo mức của trung tâm",
     incomename:"Tên khoản thu", incomenameph:"vd: Tổ chức sự kiện", amountvnd:"Đơn giá (VND)", hourslabel:"Số giờ", addincome:"Thêm khoản thu",
+    overtime:"Làm thêm giờ", overtimehint:"phần phụ trội trên mức thường được miễn thuế & bảo hiểm (luật 2026)",
+    otname:"Mô tả", otnameph:"vd: Luyện thi thứ Bảy", otrate:"Đơn giá OT", othours:"Số giờ", addovertime:"Thêm làm thêm giờ",
+    otnormalpart:"Làm thêm — phần thường (chịu thuế)", otpremiumpart:"Phụ trội làm thêm (miễn thuế & BH)",
+    exemptnote:"Phần phụ trội trên mức thường — miễn thuế TNCN & bảo hiểm theo luật 2026",
   }
 };
 let lang = 'vi';
@@ -297,7 +305,7 @@ let center = { name:"Greenfield Language Centre", addr:"", tax:"", logo:null };
 let teachers = [
   { id:1, name:"Nguyễn Thu Hà", empId:"NQ01", type:"res", cur:"vnd", rate:300000, fx:25000,
     deps:1, mst:"", insBase:6000000, allowance:3000000, allowanceName:"Phụ cấp kiêm nhiệm",
-    otherIncome:[],
+    otherIncome:[], overtime:[{name:"Sat exam prep",rate:400000,hours:6}],
     weekly:[
       {id:"s1",label:"IELTS prep",dow:1,start:"18:00",end:"20:00",mult:1},
       {id:"s2",label:"IELTS prep",dow:3,start:"18:00",end:"20:00",mult:1},
@@ -307,7 +315,7 @@ let teachers = [
     toggles:{si:true,hi:true,ui:true,split:true,cap:true} },
   { id:2, name:"Steyn Nathan Byran", empId:"NQ05", type:"res", cur:"usd", rate:18, fx:25000,
     deps:0, mst:"", insBase:6000000, allowance:3000000, allowanceName:"Housing allowance",
-    otherIncome:[],
+    otherIncome:[], overtime:[],
     weekly:[
       {id:"s1",label:"IELTS prep",dow:2,start:"17:30",end:"19:30",mult:1},
       {id:"s2",label:"Business English",dow:4,start:"17:30",end:"19:30",mult:1},
@@ -401,8 +409,22 @@ function calc(tch){
   const teachingTaxable = regPay + flatHoliday;
   const allowance = +tch.allowance||0;
   const otherTotal = (tch.otherIncome||[]).reduce((a,o)=>a+((+o.rate||0)*(+o.hours||0)),0);
-  const taxableBase = teachingTaxable + allowance + otherTotal;
-  const gross = taxableBase + premium;
+
+  // overtime: normal-rate portion is taxable, premium above normal is exempt
+  let otNormal=0, otPremium=0;
+  (tch.overtime||[]).forEach(o=>{
+    const otRateVnd = tch.cur==="usd" ? (+o.rate||0)*tch.fx : (+o.rate||0);
+    const hrs = +o.hours||0;
+    const totalOt = otRateVnd*hrs;
+    const normalPortion = Math.min(otRateVnd, vndRate)*hrs; // capped at normal rate
+    const premiumPortion = Math.max(0, totalOt - normalPortion);
+    otNormal += normalPortion;
+    otPremium += premiumPortion;
+  });
+
+  const taxableBase = teachingTaxable + allowance + otherTotal + otNormal;
+  const premiumTotal = premium + otPremium;
+  const gross = taxableBase + premiumTotal;
 
   let insSalary = (tch.insBase && tch.insBase>0) ? tch.insBase : taxableBase;
   const siBase = tg.cap ? Math.min(insSalary, RATES.capSIHI) : insSalary;
@@ -418,7 +440,8 @@ function calc(tch){
   else { taxableIncome = Math.max(0, taxableBase - insTotal - familyDeduction); pitDue = pit(taxableIncome); }
 
   const net = gross - insTotal - pitDue;
-  return { vndRate, perMin, regPay:teachingTaxable, latePay, premium, gross, otherTotal,
+  return { vndRate, perMin, regPay:teachingTaxable, latePay, premium:premiumTotal, gross, otherTotal,
+    otNormal, otPremium, classPremium:premium,
     siAmt, hiAmt, uiAmt, insTotal, insSalary, familyDeduction, taxableIncome,
     pitDue, net, allowance };
 }
@@ -488,7 +511,7 @@ function rosterScreen(){
   addBtn.onclick = ()=>{
     const nt = { id:nextId++, name:lang==="vi"?"Giáo viên mới":"New teacher", empId:"", type:"res", cur:"vnd",
       rate:300000, fx:25000, deps:0, mst:"", insBase:0, allowance:0, allowanceName:"",
-      otherIncome:[],
+      otherIncome:[], overtime:[],
       sched:[{l:lang==="vi"?"Lớp 1":"Class 1",s:60,late:0,mult:1}],
       toggles:{si:true,hi:true,ui:true,split:true,cap:true} };
     teachers.push(nt); view.screen="detail"; view.teacherId=nt.id; render();
@@ -586,6 +609,16 @@ function detailScreen(){
   addOi.onclick = ()=>{ readDetail(tch); (tch.otherIncome=tch.otherIncome||[]).push({name:"",rate:0,hours:0}); render(); };
   card.appendChild(addOi);
 
+  // overtime — full width, on its own line
+  const otLabel = el("div",{style:"font-size:12px;font-weight:500;color:var(--ink-soft);margin:18px 0 6px;"}, `${t("overtime")} <span style="font-weight:400;">— ${t("overtimehint")}</span>`);
+  card.appendChild(otLabel);
+  const otRows = el("div",{id:"ot-rows"});
+  card.appendChild(otRows);
+  renderOvertime(otRows, tch);
+  const addOt = el("button",{class:"add-link"}, icon.plus+t("addovertime"));
+  addOt.onclick = ()=>{ readDetail(tch); (tch.overtime=tch.overtime||[]).push({name:"",rate:0,hours:0}); render(); };
+  card.appendChild(addOt);
+
   // allowance + insurance grid below other income
   const grid2 = el("div",{class:"grid cols2",style:"margin-top:16px;"});
   grid2.appendChild(field(t("allowancename"), `<input id="d-allowname" placeholder="${t("allowancenameph")}" value="${esc(tch.allowanceName||"")}">`));
@@ -669,6 +702,44 @@ function toggle(key, label, val, tch){
 }
 
 const DOWSEL = [1,2,3,4,5,6,7];
+function renderOvertime(wrap, tch){
+  wrap.innerHTML="";
+  tch.overtime = tch.overtime || [];
+  if(!tch.overtime.length) tch.overtime.push({name:"",rate:0,hours:0});
+  const list = tch.overtime;
+  const isUsd = tch.cur==="usd";
+  const rateLabel = isUsd ? (t("otrate")+" ($)") : (t("otrate")+" (VND)");
+  const head = el("div",{class:"oi-h"});
+  head.innerHTML = `<span>${t("otname")}</span><span>${rateLabel}</span><span>${t("othours")}</span><span>=</span><span></span>`;
+  wrap.appendChild(head);
+  const normalVnd = tch.cur==="usd" ? (+tch.rate||0)*(+tch.fx||0) : (+tch.rate||0);
+  list.forEach((o,j)=>{
+    const otRateVnd = isUsd ? (+o.rate||0)*(+tch.fx||0) : (+o.rate||0);
+    const hrs=+o.hours||0;
+    const total = otRateVnd*hrs;
+    const row = el("div",{class:"oi-r"});
+    row.innerHTML = `<input value="${esc(o.name||"")}" placeholder="${t("otnameph")}" data-otf="name" data-j="${j}">
+      <input type="number" value="${o.rate||0}" data-otf="rate" data-j="${j}">
+      <input type="number" value="${o.hours||0}" data-otf="hours" data-j="${j}">
+      <span class="oi-amt" data-otamt="${j}">${vnd(total)}</span>
+      <button class="iconbtn" data-otdel="${j}">${icon.x}</button>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll("[data-otf]").forEach(inp=>{
+    inp.addEventListener("input", ()=>{
+      const j=+inp.dataset.j, f=inp.dataset.otf;
+      tch.overtime[j][f] = f==="name" ? inp.value : (+inp.value||0);
+      const otRateVnd = isUsd ? (+tch.overtime[j].rate||0)*(+tch.fx||0) : (+tch.overtime[j].rate||0);
+      const amtEl=wrap.querySelector(`[data-otamt="${j}"]`);
+      if(amtEl) amtEl.textContent = vnd(otRateVnd*(+tch.overtime[j].hours||0));
+      renderBreakdown(document.getElementById("breakdown"), tch);
+    });
+  });
+  wrap.querySelectorAll("button[data-otdel]").forEach(b=>{
+    b.addEventListener("click", ()=>{ tch.overtime.splice(+b.dataset.otdel,1);
+      renderOvertime(wrap,tch); renderBreakdown(document.getElementById("breakdown"),tch); });
+  });
+}
 function renderOtherIncome(wrap, tch){
   wrap.innerHTML="";
   tch.otherIncome = tch.otherIncome || [];
@@ -889,8 +960,10 @@ function renderBreakdown(box, tch){
   rows.push(["lab", t("regularpay"), vnd(r.regPay)]);
   if(r.allowance>0) rows.push(["lab", (tch.allowanceName||t("allowance")), vnd(r.allowance)]);
   (tch.otherIncome||[]).forEach(o=>{ const amt=(+o.rate||0)*(+o.hours||0); if(amt>0) rows.push(["lab", o.name||t("otherincome"), vnd(amt)]); });
+  if(r.otNormal>0) rows.push(["lab", t("otnormalpart"), vnd(r.otNormal)]);
   if(r.latePay>0) rows.push(["neg", t("latededuct"), "−"+vnd(r.latePay)]);
-  if(r.premium>0) rows.push(["pos", t("holidaypremium"), vnd(r.premium)]);
+  if(r.classPremium>0) rows.push(["pos", t("holidaypremium"), vnd(r.classPremium)]);
+  if(r.otPremium>0) rows.push(["pos", t("otpremiumpart"), vnd(r.otPremium)]);
   let html = `<div class="bd-row"><span class="lab">${t("gross")}</span><span class="val">${vnd(r.gross)}</span></div>`;
   let pre = "";
   rows.forEach(([cls,l,v])=>{
@@ -917,7 +990,9 @@ function buildSlipHTML(tch, forPrint){
   let incomeLines = `<div class="slip-line"><span class="l">${L.teachingpay}<span class="en">${I18N.en.teachingpay}</span></span><span class="a">${vnd(r.regPay)}</span></div>`;
   if(r.allowance>0) incomeLines += `<div class="slip-line"><span class="l">${esc(tch.allowanceName)||L.allowance}<span class="en">${tch.allowanceName?I18N.en.allowance:""}</span></span><span class="a">${vnd(r.allowance)}</span></div>`;
   (tch.otherIncome||[]).forEach(o=>{ const amt=(+o.rate||0)*(+o.hours||0); if(amt>0) incomeLines += `<div class="slip-line"><span class="l">${esc(o.name)||L.otherincome}</span><span class="a">${vnd(amt)}</span></div>`; });
-  if(r.premium>0) incomeLines += `<div class="slip-line"><span class="l">${L.holidaypremium}<span class="en">${I18N.en.holidaypremium}</span></span><span class="a">${vnd(r.premium)}</span></div>`;
+  if(r.otNormal>0) incomeLines += `<div class="slip-line"><span class="l">${L.otnormalpart}</span><span class="a">${vnd(r.otNormal)}</span></div>`;
+  if(r.classPremium>0) incomeLines += `<div class="slip-line"><span class="l">${L.holidaypremium}<span class="en">${I18N.en.holidaypremium}</span></span><span class="a">${vnd(r.classPremium)}</span></div>`;
+  if(r.otPremium>0) incomeLines += `<div class="slip-line"><span class="l">${L.otpremiumpart}<span class="en" style="color:var(--teal);">${L.exemptnote}</span></span><span class="a">${vnd(r.otPremium)}</span></div>`;
   incomeLines += `<div class="slip-line sub"><span class="l">${L.totalincome}</span><span class="a">${vnd(r.gross)}</span></div>`;
 
   // deduction lines
