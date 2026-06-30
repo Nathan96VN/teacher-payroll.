@@ -664,8 +664,10 @@ function toggle(key, label, val, tch){
 const DOWSEL = [1,2,3,4,5,6,7];
 function renderOtherIncome(wrap, tch){
   wrap.innerHTML="";
-  const list = tch.otherIncome||[];
-  if(!list.length){ wrap.innerHTML = `<div class="muted">${t("otherhint")}</div>`; return; }
+  tch.otherIncome = tch.otherIncome || [];
+  // always show at least one row to fill in
+  if(!tch.otherIncome.length) tch.otherIncome.push({name:"",rate:0,hours:0});
+  const list = tch.otherIncome;
   const head = el("div",{class:"oi-h"});
   head.innerHTML = `<span>${t("incomename")}</span><span>${t("amountvnd")}</span><span>${t("hourslabel")}</span><span>=</span><span></span>`;
   wrap.appendChild(head);
