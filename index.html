@@ -597,37 +597,37 @@ function detailScreen(){
   grid.appendChild(fxField);
   grid.appendChild(field(t("dependents"), `<input id="d-deps" type="number" min="0" value="${tch.deps}">`));
   grid.appendChild(field(t("taxnumber"), `<input id="d-mst" placeholder="${t("taxnumberph")}" value="${esc(tch.mst)}">`));
+  grid.appendChild(field(t("allowancename"), `<input id="d-allowname" placeholder="${t("allowancenameph")}" value="${esc(tch.allowanceName||"")}">`));
+  grid.appendChild(field(t("allowance"), `<input id="d-allow" type="number" value="${tch.allowance||0}">`));
+  const insField = field(t("insbase"), `<input id="d-insbase" type="number" value="${tch.insBase||0}">`);
+  insField.querySelector("input").insertAdjacentHTML("afterend",`<div class="hint">${t("insbasehint")}</div>`);
+  grid.appendChild(insField);
   card.appendChild(grid);
+  frag.appendChild(card);
 
-  // other income — full width, on its own line
-  const oiLabel = el("div",{style:"font-size:12px;font-weight:500;color:var(--ink-soft);margin:16px 0 6px;"}, `${t("otherincome")} <span style="font-weight:400;">— ${t("otherhint")}</span>`);
-  card.appendChild(oiLabel);
+  // OTHER INCOME — its own separate card
+  const oiTitle = el("div",{class:"section-title"}, `${t("otherincome")} <span class="muted">— ${t("otherhint")}</span>`);
+  frag.appendChild(oiTitle);
+  const oiCard = el("div",{class:"card card-pad"});
   const oiRows = el("div",{id:"oi-rows"});
-  card.appendChild(oiRows);
+  oiCard.appendChild(oiRows);
   renderOtherIncome(oiRows, tch);
   const addOi = el("button",{class:"add-link"}, icon.plus+t("addincome"));
   addOi.onclick = ()=>{ readDetail(tch); (tch.otherIncome=tch.otherIncome||[]).push({name:"",rate:0,hours:0}); renderOtherIncome(oiRows, tch); };
-  card.appendChild(addOi);
+  oiCard.appendChild(addOi);
+  frag.appendChild(oiCard);
 
-  // overtime — full width, on its own line
-  const otLabel = el("div",{style:"font-size:12px;font-weight:500;color:var(--ink-soft);margin:18px 0 6px;"}, `${t("overtime")} <span style="font-weight:400;">— ${t("overtimehint")}</span>`);
-  card.appendChild(otLabel);
+  // OVERTIME — its own separate card
+  const otTitle = el("div",{class:"section-title"}, `${t("overtime")} <span class="muted">— ${t("overtimehint")}</span>`);
+  frag.appendChild(otTitle);
+  const otCard = el("div",{class:"card card-pad"});
   const otRows = el("div",{id:"ot-rows"});
-  card.appendChild(otRows);
+  otCard.appendChild(otRows);
   renderOvertime(otRows, tch);
   const addOt = el("button",{class:"add-link"}, icon.plus+t("addovertime"));
   addOt.onclick = ()=>{ readDetail(tch); (tch.overtime=tch.overtime||[]).push({name:"",rate:0,hours:0}); renderOvertime(otRows, tch); };
-  card.appendChild(addOt);
-
-  // allowance + insurance grid below other income
-  const grid2 = el("div",{class:"grid cols2",style:"margin-top:16px;"});
-  grid2.appendChild(field(t("allowancename"), `<input id="d-allowname" placeholder="${t("allowancenameph")}" value="${esc(tch.allowanceName||"")}">`));
-  grid2.appendChild(field(t("allowance"), `<input id="d-allow" type="number" value="${tch.allowance||0}">`));
-  const insField = field(t("insbase"), `<input id="d-insbase" type="number" value="${tch.insBase||0}">`);
-  insField.querySelector("input").insertAdjacentHTML("afterend",`<div class="hint">${t("insbasehint")}</div>`);
-  grid2.appendChild(insField);
-  card.appendChild(grid2);
-  frag.appendChild(card);
+  otCard.appendChild(addOt);
+  frag.appendChild(otCard);
 
   // weekly schedule builder
   const st = el("div",{class:"section-title"}, `${t("weeklysched")} <span class="muted">— ${t("weeklyhint")}</span>`);
