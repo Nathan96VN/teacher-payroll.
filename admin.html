@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Teacher Payroll (private)</title>
+<style>
+  :root{--ink:#13211d;--soft:#5d6f69;--line:#e2e9e6;--teal:#0d7a6f;--teal-deep:#0a5a52;--teal-soft:#e4f2ef;--bg:#f4f7f5;--gold:#9a6e1c;--gold-soft:#f7efdf;--rose:#b3473f;--rose-soft:#f7e9e7;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:40px 20px;}
+  .wrap{max-width:580px;margin:0 auto;}
+  .head{display:flex;align-items:center;gap:11px;margin-bottom:8px;}
+  .mark{width:40px;height:40px;border-radius:10px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;}
+  h1{font-size:20px;}
+  .sub{color:var(--soft);font-size:14px;margin-bottom:24px;}
+  .private{background:var(--gold-soft);border:1px solid #ecd9b0;color:#7a5a1c;font-size:12.5px;padding:11px 14px;border-radius:10px;margin-bottom:24px;line-height:1.5;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px;}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--soft);margin:16px 0 6px;}
+  label:first-child{margin-top:0;}
+  input,select{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;padding:0 13px;font-family:inherit;font-size:14px;}
+  input:focus,select:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft);}
+  button{font-family:inherit;font-weight:600;font-size:15px;border:none;cursor:pointer;border-radius:11px;padding:13px 20px;background:var(--teal);color:#fff;width:100%;margin-top:24px;}
+  button:hover{background:var(--teal-deep);}
+  button.sec{background:var(--teal-soft);color:var(--teal-deep);margin-top:12px;}
+  .out{margin-top:24px;display:none;}
+  .out.show{display:block;}
+  .keybox{background:var(--ink);color:#9be8dd;font-family:ui-monospace,Menlo,monospace;font-size:13px;padding:16px;border-radius:11px;word-break:break-all;line-height:1.6;}
+  .copy{background:var(--teal-soft);color:var(--teal-deep);font-weight:600;font-size:13px;border:none;border-radius:9px;padding:9px 14px;cursor:pointer;margin-top:12px;width:auto;}
+  .meta{font-size:13px;color:var(--soft);margin-top:14px;}
+  .meta b{color:var(--ink);}
+  .secret-row{font-size:12px;color:var(--soft);margin-top:20px;padding-top:18px;border-top:1px solid var(--line);}
+  .secret-row code{background:var(--bg);padding:2px 6px;border-radius:5px;}
+  #gate{max-width:380px;margin:8vh auto;}
+  .err{background:var(--rose-soft);color:var(--rose);font-size:13px;padding:10px 12px;border-radius:9px;margin-bottom:14px;display:none;}
+  .err.show{display:block;}
+  #panel{display:none;}
+  .emailprev{background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:14px;font-size:12.5px;color:var(--soft);margin-top:14px;white-space:pre-wrap;max-height:160px;overflow:auto;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- PASSWORD GATE -->
+  <div id="gate">
+    <div class="head"><div class="mark">L</div><h1>Admin access</h1></div>
+    <div class="sub">Log in to manage licences.</div>
+    <div class="card">
+      <div class="err" id="gate-err">Wrong email or password.</div>
+      <label>Email</label>
+      <input id="adm-email" type="email" placeholder="you@youremail.com" onkeydown="if(event.key==='Enter')checkPw()">
+      <label>Password</label>
+      <input id="pw" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkPw()">
+      <button onclick="checkPw()">Log in</button>
+      <div class="hint" style="margin-top:16px;color:var(--soft);font-size:12px;">
+        Forgot your details? They are saved in plain text at the top of this <code>admin.html</code> file on your computer — open it to see or change them. You cannot be locked out.
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN PANEL -->
+  <div id="panel">
+    <div class="head"><div class="mark">L</div><h1>Licence Admin</h1></div>
+    <div class="sub">When a centre pays, fill this in and send them their key.</div>
+    <div class="private"><b>Keep this file private.</b> Do NOT upload it to GitHub. Anyone with this page and the secret can make keys.</div>
+
+    <div class="card">
+      <label>Centre name</label>
+      <input id="centre" placeholder="Greenfield Language Centre">
+
+      <label>Centre email</label>
+      <input id="email" type="email" placeholder="ten@trungtam.vn">
+
+      <label>Licence type</label>
+      <select id="type" onchange="toggleExpiry()">
+        <option value="months">Expires after N months (for renewals)</option>
+        <option value="none">No expiry</option>
+        <option value="date">Expires on a specific date</option>
+      </select>
+      <div id="months-wrap">
+        <label>Number of months</label>
+        <input id="months" type="number" value="1" min="1">
+      </div>
+      <div id="date-wrap" style="display:none;">
+        <label>Expiry date</label>
+        <input id="date" type="date">
+      </div>
+
+      <label>App link (where centres use it)</label>
+      <input id="applink" value="https://teacher-payroll.onrender.com">
+
+      <button onclick="generate()">Generate key</button>
+
+      <div class="out" id="out">
+        <div class="keybox" id="keybox"></div>
+        <button class="copy" onclick="copyKey()">Copy key</button>
+        <div class="meta" id="meta"></div>
+        <button onclick="sendEmail()">✉ Open email to centre (ready to send)</button>
+        <button class="sec" onclick="togglePrev()">Preview email text</button>
+        <div class="emailprev" id="emailprev" style="display:none;"></div>
+      </div>
+
+      <div class="secret-row">
+        Secret in use: <code id="secret-show"></code> — must match <code>LICENSE_SECRET</code> in index.html.
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Mark a centre inactive</div>
+      <div class="sub" style="margin-bottom:0;">For a centre that hasn't paid. This sends them a notice email. (Their data stays on their own device — you can't delete it remotely; not issuing a new key is what ends their access.)</div>
+      <label>Centre name</label>
+      <input id="inact-centre" placeholder="Greenfield Language Centre">
+      <label>Centre email</label>
+      <input id="inact-email" type="email" placeholder="ten@trungtam.vn">
+      <button onclick="sendInactive()">✉ Open inactivity notice email</button>
+      <button class="sec" onclick="toggleInactPrev()">Preview notice text</button>
+      <div class="emailprev" id="inact-prev" style="display:none;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  /* ===== SETTINGS — your admin login (plain text so you can never be locked out) ===== */
+  const ADMIN_EMAIL    = "you@youremail.com";            // your admin email
+  const ADMIN_PASSWORD = "changeme-admin-2026";          // your admin password
+  const LICENSE_SECRET = "GFLC-2026-vn-payroll-7Qx";     // MUST match index.html
+  /* ================================================================================== */
+
+  document.getElementById("secret-show").textContent = LICENSE_SECRET;
+
+  function checkPw(){
+    const email = document.getElementById("adm-email").value.trim().toLowerCase();
+    const pw = document.getElementById("pw").value;
+    if(email === ADMIN_EMAIL.toLowerCase() && pw === ADMIN_PASSWORD){
+      document.getElementById("gate").style.display="none";
+      document.getElementById("panel").style.display="block";
+    } else {
+      document.getElementById("gate-err").classList.add("show");
+    }
+  }
+  function toggleExpiry(){
+    const t=document.getElementById("type").value;
+    document.getElementById("months-wrap").style.display = t==="months"?"block":"none";
+    document.getElementById("date-wrap").style.display = t==="date"?"block":"none";
+  }
+  async function sha256hex(str){
+    const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+  function b64e(s){ return btoa(unescape(encodeURIComponent(s))); }
+  function ymd(d){ return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); }
+
+  let CURRENT_KEY="", CURRENT_EXPIRY_TXT="", CURRENT_EMAIL="", CURRENT_CENTRE="";
+
+  async function generate(){
+    const centre=document.getElementById("centre").value.trim();
+    const email=document.getElementById("email").value.trim();
+    if(!centre){ alert("Enter the centre name."); return; }
+    if(!email){ alert("Enter the centre email."); return; }
+    const type=document.getElementById("type").value;
+    let expiry="", expTxt="No expiry";
+    if(type==="months"){
+      const n=parseInt(document.getElementById("months").value)||1;
+      const d=new Date(); d.setMonth(d.getMonth()+n);
+      expiry=String(ymd(d));
+      expTxt=expiry.slice(6,8)+"/"+expiry.slice(4,6)+"/"+expiry.slice(0,4);
+    } else if(type==="date"){
+      const dv=document.getElementById("date").value;
+      if(!dv){ alert("Pick an expiry date."); return; }
+      expiry=dv.replace(/-/g,"");
+      expTxt=expiry.slice(6,8)+"/"+expiry.slice(4,6)+"/"+expiry.slice(0,4);
+    }
+    const payload=JSON.stringify({c:centre,e:expiry});
+    const sig=(await sha256hex(payload+LICENSE_SECRET)).slice(0,16);
+    const key=b64e(payload)+"."+sig;
+    CURRENT_KEY=key; CURRENT_EXPIRY_TXT=expTxt; CURRENT_EMAIL=email; CURRENT_CENTRE=centre;
+    document.getElementById("keybox").textContent=key;
+    document.getElementById("meta").innerHTML="Centre: <b>"+centre+"</b> · "+(expiry?("Expires: <b>"+expTxt+"</b>"):"<b>No expiry</b>");
+    document.getElementById("emailprev").textContent=emailBody();
+    document.getElementById("out").classList.add("show");
+  }
+  function emailSubject(){ return "Your Teacher Payroll licence key / Mã giấy phép của bạn"; }
+  function emailBody(){
+    const link=document.getElementById("applink").value.trim();
+    const exp = CURRENT_EXPIRY_TXT==="No expiry" ? "" :
+      ("\nHạn dùng / Valid until: "+CURRENT_EXPIRY_TXT);
+    return (
+"Xin chào "+CURRENT_CENTRE+",\n\n"+
+"Cảm ơn bạn đã đăng ký Lương Giáo Viên. Đây là mã giấy phép của trung tâm bạn:\n\n"+
+CURRENT_KEY+"\n"+
+exp+"\n\n"+
+"Cách dùng:\n"+
+"1. Mở: "+link+"\n"+
+"2. Nhập email này và mã ở trên để mở khoá.\n"+
+"3. Dữ liệu của bạn được lưu mã hoá trên thiết bị của bạn — chúng tôi không lưu giữ.\n\n"+
+"--- English ---\n\n"+
+"Hello "+CURRENT_CENTRE+",\n\n"+
+"Thank you for subscribing to Teacher Payroll. Here is your centre licence key:\n\n"+
+CURRENT_KEY+"\n"+
+(CURRENT_EXPIRY_TXT==="No expiry"?"":("Valid until: "+CURRENT_EXPIRY_TXT))+"\n\n"+
+"How to use it:\n"+
+"1. Open: "+link+"\n"+
+"2. Enter this email and the key above to unlock.\n"+
+"3. Your data is encrypted on your own device — we never store it.\n\n"+
+"Best regards"
+    );
+  }
+  function sendEmail(){
+    const url="mailto:"+encodeURIComponent(CURRENT_EMAIL)+
+      "?subject="+encodeURIComponent(emailSubject())+
+      "&body="+encodeURIComponent(emailBody());
+    window.location.href=url;
+  }
+  function togglePrev(){
+    const p=document.getElementById("emailprev");
+    p.style.display = p.style.display==="none"?"block":"none";
+  }
+  function copyKey(){
+    navigator.clipboard.writeText(CURRENT_KEY).then(()=>{ const b=event.target,o=b.textContent; b.textContent="Copied ✓"; setTimeout(()=>b.textContent=o,1500); });
+  }
+
+  function inactiveBody(centre, link){
+    return (
+"Xin chào "+centre+",\n\n"+
+"Chúng tôi nhận thấy giấy phép Lương Giáo Viên của trung tâm bạn đã hết hạn và chưa được gia hạn.\n\n"+
+"Tài khoản của bạn hiện đang ở trạng thái KHÔNG HOẠT ĐỘNG. Dữ liệu của bạn vẫn được lưu an toàn trên thiết bị của bạn và sẽ không bị mất.\n\n"+
+"Để tiếp tục sử dụng, vui lòng gia hạn thanh toán. Sau khi thanh toán, chúng tôi sẽ gửi mã giấy phép mới và bạn có thể mở khoá lại — toàn bộ dữ liệu của bạn vẫn còn nguyên.\n\n"+
+"Nếu không gia hạn, tài khoản sẽ tiếp tục ở trạng thái không hoạt động.\n\n"+
+"--- English ---\n\n"+
+"Hello "+centre+",\n\n"+
+"We noticed your Teacher Payroll licence has expired and has not been renewed.\n\n"+
+"Your account is currently INACTIVE. Your data remains safely stored on your own device and will not be lost.\n\n"+
+"To continue, please renew your payment. Once you pay, we'll send a new licence key and you can unlock again — all your data will still be there.\n\n"+
+"If you do not renew, your account will remain inactive.\n\n"+
+"Best regards"
+    );
+  }
+  function sendInactive(){
+    const centre=document.getElementById("inact-centre").value.trim();
+    const email=document.getElementById("inact-email").value.trim();
+    if(!centre || !email){ alert("Enter the centre name and email."); return; }
+    const link=document.getElementById("applink").value.trim();
+    const url="mailto:"+encodeURIComponent(email)+
+      "?subject="+encodeURIComponent("Your Teacher Payroll account is inactive / Tài khoản chưa hoạt động")+
+      "&body="+encodeURIComponent(inactiveBody(centre, link));
+    window.location.href=url;
+  }
+  function toggleInactPrev(){
+    const centre=document.getElementById("inact-centre").value.trim()||"[centre]";
+    const p=document.getElementById("inact-prev");
+    p.textContent=inactiveBody(centre, document.getElementById("applink").value.trim());
+    p.style.display = p.style.display==="none"?"block":"none";
+  }
+</script>
+</body>
+</html>
