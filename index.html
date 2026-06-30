@@ -606,7 +606,7 @@ function detailScreen(){
   card.appendChild(oiRows);
   renderOtherIncome(oiRows, tch);
   const addOi = el("button",{class:"add-link"}, icon.plus+t("addincome"));
-  addOi.onclick = ()=>{ readDetail(tch); (tch.otherIncome=tch.otherIncome||[]).push({name:"",rate:0,hours:0}); render(); };
+  addOi.onclick = ()=>{ readDetail(tch); (tch.otherIncome=tch.otherIncome||[]).push({name:"",rate:0,hours:0}); renderOtherIncome(oiRows, tch); };
   card.appendChild(addOi);
 
   // overtime — full width, on its own line
@@ -616,7 +616,7 @@ function detailScreen(){
   card.appendChild(otRows);
   renderOvertime(otRows, tch);
   const addOt = el("button",{class:"add-link"}, icon.plus+t("addovertime"));
-  addOt.onclick = ()=>{ readDetail(tch); (tch.overtime=tch.overtime||[]).push({name:"",rate:0,hours:0}); render(); };
+  addOt.onclick = ()=>{ readDetail(tch); (tch.overtime=tch.overtime||[]).push({name:"",rate:0,hours:0}); renderOvertime(otRows, tch); };
   card.appendChild(addOt);
 
   // allowance + insurance grid below other income
