@@ -136,11 +136,21 @@
   .wk-h{font-size:11px;color:var(--ink-soft);font-weight:500;padding:0 2px 8px;}
   .wk-r{margin-bottom:7px;}
   .wk-r input,.wk-r select{height:36px;font-size:13px;padding:0 8px;}
+  /* timetable grid */
+  .tt{display:grid;grid-template-columns:96px repeat(7,minmax(78px,1fr));gap:4px;min-width:660px;}
+  .tt-th{font-size:11px;font-weight:600;color:var(--ink-soft);text-align:center;padding:4px 0;}
+  .tt-th.tt-time{text-align:left;}
+  .tt-time-cell{display:flex;flex-direction:column;gap:3px;}
+  .tt-time-cell input{height:28px;font-size:11px;padding:0 5px;}
+  .tt-cell input{height:38px;font-size:12px;padding:0 6px;text-align:center;border-color:var(--line-soft);}
+  .tt-cell.filled input{background:var(--teal-soft);border-color:var(--teal-soft);font-weight:600;color:var(--teal);}
   /* other income */
-  .oi-h,.oi-r{display:grid;grid-template-columns:1.6fr 1fr 34px;gap:7px;align-items:center;}
+  .oi-h,.oi-r{display:grid;grid-template-columns:1.5fr 1fr .7fr 1fr 34px;gap:7px;align-items:center;}
   .oi-h{font-size:11px;color:var(--ink-soft);font-weight:500;padding:0 2px 8px;}
+  .oi-h span:nth-child(4){text-align:right;}
   .oi-r{margin-bottom:7px;}
   .oi-r input{height:36px;font-size:13px;padding:0 8px;}
+  .oi-amt{font-size:13px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums;color:var(--teal);}
 
   /* calendar */
   .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
@@ -216,7 +226,7 @@ const I18N = {
     profile:"Profile", overview:"Overview",
     allowancename:"Allowance name", allowancenameph:"e.g. Housing, Transport",
     otherincome:"Other income", otherhint:"extra paid activities (events, invigilation) at the school's own rates",
-    incomename:"Income name", incomenameph:"e.g. Exam invigilation", amountvnd:"Amount (VND)", addincome:"Add income line",
+    incomename:"Income name", incomenameph:"e.g. Event hosting", amountvnd:"Rate (VND)", hourslabel:"Hours", addincome:"Add income line",
   },
   vi:{
     appsub:"Lương giáo viên",
@@ -263,7 +273,7 @@ const I18N = {
     profile:"Hồ sơ", overview:"Tổng quan",
     allowancename:"Tên phụ cấp", allowancenameph:"vd: Nhà ở, Đi lại",
     otherincome:"Thu nhập khác", otherhint:"các hoạt động có trả thêm (sự kiện, coi thi) theo mức của trung tâm",
-    incomename:"Tên khoản thu", incomenameph:"vd: Coi thi", amountvnd:"Số tiền (VND)", addincome:"Thêm khoản thu",
+    incomename:"Tên khoản thu", incomenameph:"vd: Tổ chức sự kiện", amountvnd:"Đơn giá (VND)", hourslabel:"Số giờ", addincome:"Thêm khoản thu",
   }
 };
 let lang = 'vi';
@@ -382,7 +392,7 @@ function calc(tch){
 
   const teachingTaxable = regPay + flatHoliday;
   const allowance = +tch.allowance||0;
-  const otherTotal = (tch.otherIncome||[]).reduce((a,o)=>a+(+o.amount||0),0);
+  const otherTotal = (tch.otherIncome||[]).reduce((a,o)=>a+((+o.rate||0)*(+o.hours||0)),0);
   const taxableBase = teachingTaxable + allowance + otherTotal;
   const gross = taxableBase + premium;
 
@@ -567,17 +577,10 @@ function detailScreen(){
   // weekly schedule builder
   const st = el("div",{class:"section-title"}, `${t("weeklysched")} <span class="muted">— ${t("weeklyhint")}</span>`);
   frag.appendChild(st);
-  const schedCard = el("div",{class:"card card-pad"});
+  const schedCard = el("div",{class:"card card-pad",style:"overflow-x:auto;"});
   const rowsWrap = el("div",{id:"weekly-rows"});
   schedCard.appendChild(rowsWrap);
   renderWeeklyRows(rowsWrap, tch);
-  const addC = el("button",{class:"add-link"}, icon.plus+t("addslot"));
-  addC.onclick = ()=>{ readDetail(tch);
-    const nid = "s"+(Date.now()%100000);
-    (tch.weekly=tch.weekly||[]).push({id:nid,label:lang==="vi"?"Lớp mới":"New class",dow:1,start:"18:00",end:"19:30",mult:1});
-    render();
-  };
-  schedCard.appendChild(addC);
   frag.appendChild(schedCard);
 
   // calendar
@@ -595,7 +598,7 @@ function detailScreen(){
   oiCard.appendChild(oiRows);
   renderOtherIncome(oiRows, tch);
   const addOi = el("button",{class:"add-link"}, icon.plus+t("addincome"));
-  addOi.onclick = ()=>{ readDetail(tch); (tch.otherIncome=tch.otherIncome||[]).push({name:"",amount:0}); render(); };
+  addOi.onclick = ()=>{ readDetail(tch); (tch.otherIncome=tch.otherIncome||[]).push({name:"",rate:0,hours:0}); render(); };
   oiCard.appendChild(addOi);
   frag.appendChild(oiCard);
 
@@ -661,19 +664,24 @@ function renderOtherIncome(wrap, tch){
   const list = tch.otherIncome||[];
   if(!list.length){ wrap.innerHTML = `<div class="muted">${t("otherhint")}</div>`; return; }
   const head = el("div",{class:"oi-h"});
-  head.innerHTML = `<span>${t("incomename")}</span><span>${t("amountvnd")}</span><span></span>`;
+  head.innerHTML = `<span>${t("incomename")}</span><span>${t("amountvnd")}</span><span>${t("hourslabel")}</span><span>=</span><span></span>`;
   wrap.appendChild(head);
   list.forEach((o,j)=>{
+    const amt = (+o.rate||0)*(+o.hours||0);
     const row = el("div",{class:"oi-r"});
-    row.innerHTML = `<input value="${esc(o.name)}" placeholder="${t("incomenameph")}" data-oif="name" data-j="${j}">
-      <input type="number" value="${o.amount||0}" data-oif="amount" data-j="${j}">
+    row.innerHTML = `<input value="${esc(o.name||"")}" placeholder="${t("incomenameph")}" data-oif="name" data-j="${j}">
+      <input type="number" value="${o.rate||0}" data-oif="rate" data-j="${j}">
+      <input type="number" value="${o.hours||0}" data-oif="hours" data-j="${j}">
+      <span class="oi-amt" data-amt="${j}">${vnd(amt)}</span>
       <button class="iconbtn" data-oidel="${j}">${icon.x}</button>`;
     wrap.appendChild(row);
   });
   wrap.querySelectorAll("[data-oif]").forEach(inp=>{
     inp.addEventListener("input", ()=>{
       const j=+inp.dataset.j, f=inp.dataset.oif;
-      tch.otherIncome[j][f] = f==="amount" ? (+inp.value||0) : inp.value;
+      tch.otherIncome[j][f] = f==="name" ? inp.value : (+inp.value||0);
+      const amtEl = wrap.querySelector(`[data-amt="${j}"]`);
+      if(amtEl) amtEl.textContent = vnd((+tch.otherIncome[j].rate||0)*(+tch.otherIncome[j].hours||0));
       renderBreakdown(document.getElementById("breakdown"), tch);
     });
   });
@@ -683,37 +691,80 @@ function renderOtherIncome(wrap, tch){
   });
 }
 
+/* ---- timetable grid: rows = time slots, columns = Mon..Sun ---- */
+function slotKey(s){ return s.start+"-"+s.end; }
+function getTimeRows(tch){
+  // unique start-end pairs, sorted by start
+  const map = {};
+  (tch.weekly||[]).forEach(s=>{ map[slotKey(s)] = {start:s.start, end:s.end}; });
+  return Object.values(map).sort((a,b)=> a.start.localeCompare(b.start));
+}
 function renderWeeklyRows(wrap, tch){
   wrap.innerHTML="";
-  const head = el("div",{class:"wk-h"});
-  head.innerHTML = `<span>${t("class")}</span><span>${t("day")}</span><span>${t("starttime")}</span><span>${t("endtime")}</span><span>×</span><span></span>`;
-  wrap.appendChild(head);
-  (tch.weekly||[]).forEach((s,j)=>{
-    const row = el("div",{class:"wk-r"});
-    const dowOpts = DOWSEL.map(d=>`<option value="${d}" ${d===s.dow?"selected":""}>${DOW_LABELS[lang][d-1]}</option>`).join("");
-    const multOpts = [[1,t("normal")],[2,t("restday")],[3,t("holiday")]].map(([m,lbl])=>`<option value="${m}" ${m===s.mult?"selected":""}>${m}× ${lbl.replace(/ ×\d/,"")}</option>`).join("");
-    row.innerHTML = `<input value="${esc(s.label)}" data-f="label" data-j="${j}">
-      <select data-f="dow" data-j="${j}">${dowOpts}</select>
-      <input type="time" value="${s.start}" data-f="start" data-j="${j}">
-      <input type="time" value="${s.end}" data-f="end" data-j="${j}">
-      <select data-f="mult" data-j="${j}" style="min-width:0;">${multOpts}</select>
-      <button class="iconbtn" data-del="${j}">${icon.x}</button>`;
-    wrap.appendChild(row);
+  tch.weekly = tch.weekly || [];
+  const rows = getTimeRows(tch);
+  const days = DOW_LABELS[lang]; // 7
+
+  const grid = el("div",{class:"tt"});
+  // header row
+  let html = `<div class="tt-th tt-time">${t("starttime")}/${t("endtime")}</div>`;
+  days.forEach(d=> html += `<div class="tt-th">${d}</div>`);
+  grid.innerHTML = html;
+
+  rows.forEach((r,ri)=>{
+    // time cell (editable start/end)
+    const timeCell = el("div",{class:"tt-time-cell"});
+    timeCell.innerHTML = `<input type="time" value="${r.start}" data-trow="${ri}" data-tf="start">
+      <input type="time" value="${r.end}" data-trow="${ri}" data-tf="end">`;
+    grid.appendChild(timeCell);
+    // 7 day cells
+    DOWSEL.forEach(dow=>{
+      const slot = tch.weekly.find(s=> slotKey(s)===slotKey(r) && s.dow===dow);
+      const cell = el("div",{class:"tt-cell"+(slot?" filled":"")});
+      cell.innerHTML = `<input value="${slot?esc(slot.label):""}" placeholder="–" data-cellrow="${ri}" data-dow="${dow}">`;
+      grid.appendChild(cell);
+    });
   });
-  wrap.querySelectorAll("[data-f]").forEach(inp=>{
-    const ev = inp.tagName==="SELECT"?"change":"input";
-    inp.addEventListener(ev, ()=>{
-      const j=+inp.dataset.j, f=inp.dataset.f;
-      let v=inp.value; if(f==="dow"||f==="mult") v=+v;
-      tch.weekly[j][f]=v;
+  wrap.appendChild(grid);
+
+  // add a new time-slot row
+  const addRow = el("button",{class:"add-link",style:"margin-top:10px;"}, icon.plus+t("addslot"));
+  addRow.onclick = ()=>{
+    // add an empty slot row with a fresh time; user fills classes per day
+    const last = rows.length? rows[rows.length-1] : {start:"08:00",end:"08:45"};
+    tch.weekly.push({id:"s"+(Date.now()%100000), label:"", dow:1, start:last.end||"09:00", end:"10:00", mult:1, placeholder:true});
+    renderWeeklyRows(wrap, tch);
+  };
+  wrap.appendChild(addRow);
+
+  // wire time edits (changes the start/end for all slots sharing that row)
+  wrap.querySelectorAll("[data-trow]").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const ri=+inp.dataset.trow, f=inp.dataset.tf;
+      const oldRow = rows[ri];
+      tch.weekly.forEach(s=>{ if(slotKey(s)===slotKey(oldRow)) s[f]=inp.value; });
+      renderWeeklyRows(wrap, tch);
       renderBreakdown(document.getElementById("breakdown"), tch);
       renderCalendar(document.getElementById("calwrap"), tch);
     });
   });
-  wrap.querySelectorAll("button[data-del]").forEach(b=>{
-    b.addEventListener("click", ()=>{ tch.weekly.splice(+b.dataset.del,1);
-      renderWeeklyRows(wrap,tch); renderBreakdown(document.getElementById("breakdown"),tch);
-      renderCalendar(document.getElementById("calwrap"), tch); });
+  // wire class name edits per cell
+  wrap.querySelectorAll("[data-cellrow]").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const ri=+inp.dataset.cellrow, dow=+inp.dataset.dow;
+      const r=rows[ri]; const val=inp.value.trim();
+      let slot = tch.weekly.find(s=> slotKey(s)===slotKey(r) && s.dow===dow);
+      if(val){
+        if(slot){ slot.label=val; slot.placeholder=false; }
+        else tch.weekly.push({id:"s"+(Date.now()%100000)+dow, label:val, dow, start:r.start, end:r.end, mult:1});
+      } else if(slot){
+        tch.weekly = tch.weekly.filter(s=> s!==slot);
+      }
+      // clean placeholder-only rows
+      tch.weekly = tch.weekly.filter(s=> !(s.placeholder && !s.label));
+      renderBreakdown(document.getElementById("breakdown"), tch);
+      renderCalendar(document.getElementById("calwrap"), tch);
+    });
   });
 }
 
@@ -815,7 +866,7 @@ function renderBreakdown(box, tch){
   rows.push(["lab", t("hourlyrate"), vnd(r.vndRate)]);
   rows.push(["lab", t("regularpay"), vnd(r.regPay)]);
   if(r.allowance>0) rows.push(["lab", (tch.allowanceName||t("allowance")), vnd(r.allowance)]);
-  (tch.otherIncome||[]).forEach(o=>{ if(+o.amount>0) rows.push(["lab", o.name||t("otherincome"), vnd(+o.amount)]); });
+  (tch.otherIncome||[]).forEach(o=>{ const amt=(+o.rate||0)*(+o.hours||0); if(amt>0) rows.push(["lab", o.name||t("otherincome"), vnd(amt)]); });
   if(r.latePay>0) rows.push(["neg", t("latededuct"), "−"+vnd(r.latePay)]);
   if(r.premium>0) rows.push(["pos", t("holidaypremium"), vnd(r.premium)]);
   let html = `<div class="bd-row"><span class="lab">${t("gross")}</span><span class="val">${vnd(r.gross)}</span></div>`;
@@ -843,7 +894,7 @@ function buildSlipHTML(tch, forPrint){
   // income lines
   let incomeLines = `<div class="slip-line"><span class="l">${L.teachingpay}<span class="en">${I18N.en.teachingpay}</span></span><span class="a">${vnd(r.regPay)}</span></div>`;
   if(r.allowance>0) incomeLines += `<div class="slip-line"><span class="l">${esc(tch.allowanceName)||L.allowance}<span class="en">${tch.allowanceName?I18N.en.allowance:""}</span></span><span class="a">${vnd(r.allowance)}</span></div>`;
-  (tch.otherIncome||[]).forEach(o=>{ if(+o.amount>0) incomeLines += `<div class="slip-line"><span class="l">${esc(o.name)||L.otherincome}</span><span class="a">${vnd(+o.amount)}</span></div>`; });
+  (tch.otherIncome||[]).forEach(o=>{ const amt=(+o.rate||0)*(+o.hours||0); if(amt>0) incomeLines += `<div class="slip-line"><span class="l">${esc(o.name)||L.otherincome}</span><span class="a">${vnd(amt)}</span></div>`; });
   if(r.premium>0) incomeLines += `<div class="slip-line"><span class="l">${L.holidaypremium}<span class="en">${I18N.en.holidaypremium}</span></span><span class="a">${vnd(r.premium)}</span></div>`;
   incomeLines += `<div class="slip-line sub"><span class="l">${L.totalincome}</span><span class="a">${vnd(r.gross)}</span></div>`;
 
